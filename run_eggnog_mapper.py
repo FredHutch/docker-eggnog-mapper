@@ -129,7 +129,7 @@ if __name__ == "__main__":
                         type=str,
                         required=True,
                         help="""Folder containing eggNOG mapper database files.""")
-    parser.add_argument("--output-tsv",
+    parser.add_argument("--output",
                         type=str,
                         required=True,
                         help="""Output in TSV format.""")
