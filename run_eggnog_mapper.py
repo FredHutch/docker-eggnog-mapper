@@ -194,7 +194,7 @@ if __name__ == "__main__":
     local_output_prefix = os.path.join(temp_folder, "output")
     try:
         run_cmds([
-            "python", "emapper.py", 
+            "emapper.py", 
             "-i", local_input_file,
             "--output", local_output_prefix,
             "-m", "diamond",
