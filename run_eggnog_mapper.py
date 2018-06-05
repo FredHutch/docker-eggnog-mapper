@@ -181,7 +181,7 @@ if __name__ == "__main__":
     ))
     try:
         run_cmds([
-            "aws", "s3", "sync", args.db, local_db_folder
+            "aws", "s3", "sync", "--quiet", args.db, local_db_folder
         ])
     except:
         exit_and_clean_up(temp_folder)
