@@ -199,7 +199,8 @@ if __name__ == "__main__":
             "--output", local_output_prefix,
             "-m", "diamond",
             "--cpu", str(args.cpu),
-            "--data_dir", local_db_folder
+            "--data_dir", local_db_folder,
+            "--scratch_dir", temp_folder
         ])
     except:
         exit_and_clean_up(temp_folder)
