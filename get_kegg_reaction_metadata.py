@@ -64,7 +64,7 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None):
         "create unique index if not exists compound_ix on compound (compound);"
     )
     c.execute(
-        "create table if not exists pathway(pathway TEXT, name TEXT, class TEXT);"
+        "create table if not exists pathway(pathway TEXT, reaction TEXT, name TEXT, class TEXT);"
     )
     c.execute(
         "create unique index if not exists pathway_ix on pathway (pathway);"
@@ -137,8 +137,9 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None):
                 print(pathway_id)
                 pathway_data = fetch_kegg_api("path", pathway_id)
                 
-                sql_cmd = "insert or replace into pathway(pathway, name, class) values ('{}', '{}', '{}');".format(
+                sql_cmd = "insert or replace into pathway(pathway, reaction, name, class) values ('{}', '{}', '{}', '{}');".format(
                     sql_safe_string(pathway_id),
+                    sql_safe_string(reaction_id),
                     sql_safe_string(pathway_data["NAME"][0]),
                     sql_safe_string(pathway_data.get("CLASS", [''])[0]),
                 )
