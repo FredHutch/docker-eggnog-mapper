@@ -123,7 +123,7 @@ if __name__ == "__main__":
     parser.add_argument("--input",
                         type=str,
                         required=True,
-                        help="""Location for input file(s). Comma-separated.
+                        help="""Location for input file.
                                 (Supported: s3://, ftp://, or local path).""")
     parser.add_argument("--db",
                         type=str,
