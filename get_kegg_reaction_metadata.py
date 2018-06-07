@@ -80,7 +80,7 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None, threads=1, chunk_
     )
     c.execute(
         """create table if not exists ortholog_has_reaction
-        (ortholog_id TEXT PRIMARY KEY, reaction_id TEXT, UNIQUE(ortholog_id, reaction_id))
+        (ortholog_id TEXT, reaction_id TEXT, UNIQUE(ortholog_id, reaction_id))
         ;"""
     )
     c.execute(
@@ -93,7 +93,7 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None, threads=1, chunk_
     )
     c.execute(
         """create table if not exists reaction_compound
-        (reaction_id TEXT PRIMARY KEY, compound_id TEXT, stoichiometry INT, side TEXT,
+        (reaction_id TEXT, compound_id TEXT, stoichiometry INT, side TEXT,
         UNIQUE(compound_id, reaction_id))
         ;"""
     )
