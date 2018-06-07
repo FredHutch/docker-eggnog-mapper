@@ -85,7 +85,7 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None, threads=1, chunk_
     )
     c.execute(
         """create table if not exists reaction
-        (reaction_id TEXT PRIMARY KEY, definition TEXT, equation TEXT, enzyme TEXT
+        (reaction_id TEXT PRIMARY KEY, definition TEXT, equation TEXT, enzyme TEXT,
         direction INT);"""
     )
     c.execute(
@@ -333,6 +333,10 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None, threads=1, chunk_
                 rrd['direction'] = 0
             else:
                 rrd['direction'] = -1
+            c.execute(
+                "UPDATE reaction SET direction = ? WHERE reaction_id ==?",
+                (rrd['direction'], rxn_id)
+                )
             # And compounds
             L_compounds = [re_compound.search(c.strip()) for c in e_L[:-1].split(' + ')]
             R_compounds = [re_compound.search(c.strip()) for c in e_R[1:].split(' + ')]
@@ -610,6 +614,10 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None, threads=1, chunk_
                 rrd['direction'] = 0
             else:
                 rrd['direction'] = -1
+            c.execute(
+                "UPDATE reaction SET direction = ? WHERE reaction_id ==?",
+                (rrd['direction'], rxn_id)
+                )
             # And compounds
             L_compounds = [re_compound.search(c.strip()) for c in e_L[:-1].split(' + ')]
             R_compounds = [re_compound.search(c.strip()) for c in e_R[1:].split(' + ')]
