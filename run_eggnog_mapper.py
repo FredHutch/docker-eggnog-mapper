@@ -105,7 +105,7 @@ def safe_copy_file(path_from, path_to):
     """Copy a file, either locally or to S3."""
     if path_to.startswith("s3://"):
         try:
-            run_cmds(["aws", "s3", "cp", path_from, path_to])
+            run_cmds(["aws", "s3", "cp", "--quiet", path_from, path_to])
         except:
             exit_and_clean_up(temp_folder)
     else:
@@ -129,10 +129,14 @@ if __name__ == "__main__":
                         type=str,
                         required=True,
                         help="""Folder containing eggNOG mapper database files.""")
-    parser.add_argument("--output",
+    parser.add_argument("--output-tsv-gz",
                         type=str,
                         required=True,
-                        help="""Output in TSV format.""")
+                        help="""Output in TSV.GZ format.""")
+    parser.add_argument("--output-logs",
+                        type=str,
+                        required=True,
+                        help="""Log file (.txt).""")
     parser.add_argument("--cpu",
                         type=int,
                         required=True,
@@ -174,6 +178,9 @@ if __name__ == "__main__":
     consoleHandler.setFormatter(logFormatter)
     rootLogger.addHandler(consoleHandler)
 
+    # Make sure that the output-args-tsv ends with .tsv.gz
+    assert args.output_tsv_gz.endswith(".tsv.gz"), "Output path must end .tsv.gz"
+
     # Get the reference database
     local_db_folder = os.path.join(temp_folder, "db") + "/"
     logging.info("Downloading the reference database from {}, writing to {}".format(
@@ -213,11 +220,18 @@ if __name__ == "__main__":
     except:
         exit_and_clean_up(temp_folder)
 
-    logging.info("Copying output to " + args.output)
-    safe_copy_file(local_output_file, args.output)
+    # Compress the output file
+    try:
+        run_cmds(["gzip", local_output_file])
+        local_output_file = local_output_file + ".gz"
+    except:
+        exit_and_clean_up(temp_folder)
 
-    logging.info("Copying logs to {}.log".format(args.output.replace(".tsv", "")))
-    safe_copy_file(log_fp, args.output.replace(".tsv", "") + ".log")
+    logging.info("Copying output to " + args.output_tsv_gz)
+    safe_copy_file(local_output_file, args.output_tsv_gz)
+
+    logging.info("Copying logs to {}".format(args.output_logs))
+    safe_copy_file(log_fp, args.output_logs)
 
     # Delete any files that were created in this process
     logging.info("Deleting temporary folder: {}".format(temp_folder))
