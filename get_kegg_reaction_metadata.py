@@ -11,6 +11,8 @@ import logging
 from multiprocessing import Pool
 from functools import partial
 import re
+import sys
+import feather
 
 # Set up logging
 logFormatter = logging.Formatter(
@@ -65,7 +67,12 @@ def fetch_kegg_api(kegg_id, data_type):
     return data
 
 
-def get_kegg_reaction_metadata(input_tsv=None, output_db=None, threads=1, chunk_size=100):
+def get_kegg_reaction_metadata(
+        input_eggnog=None,
+        input_matrix=None,
+        output_db=None,
+        threads=1,
+        chunk_size=100):
     """Get reaction metadata for the KEGG entries from eggNOG output, write to SQLite."""
 
     # Make sure the tables exist for orthology, reaction, pathway, and compound
@@ -111,6 +118,12 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None, threads=1, chunk_
     c.execute(
         """create table if not exists query_ortholog
         (query_id TEXT, ortholog_id TEXT, UNIQUE(ortholog_id, query_id))
+        ;"""
+    )
+    c.execute(
+        """create table if not exists specimen_ortholog
+        (specimen_id TEXT, ortholog_id TEXT, value FLOAT,
+        UNIQUE(ortholog_id, specimen_id))
         ;"""
     )
 
@@ -161,41 +174,63 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None, threads=1, chunk_
     )
     conn.commit()
 
-    # Get the set of KEGG IDs in the input TSV
+    # Get the set of KEGG IDs
     kegg_ids = set([])
-    # and mapping of query_name to keggs
-    query_keggs = defaultdict(set)
+    if input_eggnog:
+        # mapping of query_name to keggs
+        query_keggs = defaultdict(set)
 
-    f = open_tsv(input_tsv, skip=3)
+        f = open_tsv(input_eggnog, skip=3)
 
-    header = next(f)
+        header = next(f)
 
-    # Get the set of KEGG ids represented here
-    for line in f:
-        if len(line) < len(header):
-            continue
-        entry = dict(zip(header, line))
-        assert "KEGG_KOs" in entry, entry
-        assert "#query_name" in entry, entry
-        kos = entry.get("KEGG_KOs")
-        query_name = entry.get("#query_name")
-        l_ko = {ko.strip() for ko in kos.split(',') if not ko.strip() == ''}
-        kegg_ids.update(l_ko)
-        query_keggs[query_name].update(l_ko)
+        # Get the set of KEGG ids represented here
+        for line in f:
+            if len(line) < len(header):
+                continue
+            entry = dict(zip(header, line))
+            assert "KEGG_KOs" in entry, entry
+            assert "#query_name" in entry, entry
+            kos = entry.get("KEGG_KOs")
+            query_name = entry.get("#query_name")
+            l_ko = {ko.strip() for ko in kos.split(',') if not ko.strip() == ''}
+            kegg_ids.update(l_ko)
+            query_keggs[query_name].update(l_ko)
 
-    logging.info("There are {:,} KEGG IDs in the input TSV".format(len(kegg_ids)))
-    c.executemany(
-        """INSERT OR REPLACE INTO query_ortholog
-        (query_id, ortholog_id)
-        VALUES (?, ?)
-        """,
-        [
-            (query, q_kegg)
-            for query, q_keggs in query_keggs.items()
-            for q_kegg in q_keggs
-        ]
-    )
-    conn.commit()
+        logging.info("There are {:,} KEGG IDs in the input TSV".format(len(kegg_ids)))
+        c.executemany(
+            """INSERT OR REPLACE INTO query_ortholog
+            (query_id, ortholog_id)
+            VALUES (?, ?)
+            """,
+            [
+                (query, q_kegg)
+                for query, q_keggs in query_keggs.items()
+                for q_kegg in q_keggs
+            ]
+        )
+        conn.commit()
+
+    else:
+        # Must have feather input
+        ortholog_matrix = feather.read_dataframe(input_matrix)
+        ortholog_matrix.index = ortholog_matrix['index']
+        kegg_ids = set(ortholog_matrix.index)
+        logging.info("Found {} unique orthologs in the matrix".format(
+            len(kegg_ids)
+        ))
+        # Work next on populating the feather table
+        c.executemany(
+            """INSERT OR REPLACE INTO specimen_ortholog
+            (ortholog_id, specimen_id, value)
+            VALUES (?,?,?)""",
+            [
+                (ko, spec, ortholog_matrix.loc[ko, spec])
+                for ko in ortholog_matrix.index
+                for spec in ortholog_matrix.columns
+            ]
+        )
+        conn.commit()
 
     # Figure out if we have any existing KEGGS in our db
     c.execute('select ortholog_id from ortholog;')
@@ -743,13 +778,18 @@ def get_kegg_reaction_metadata(input_tsv=None, output_db=None, threads=1, chunk_
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="""
-    Get reaction metadata for the KEGG entries from eggNOG output, write to SQLite.
+    Get reaction metadata for the KEGG entries from eggNOG output OR
+    feather table of specimen-KO and write to SQLite.
     """)
 
-    parser.add_argument("--input-tsv",
+    parser.add_argument("--input-eggnog",
                         type=str,
-                        required=True,
-                        help="""Location for local input path.""")
+                        help="""eggnog TSV output.""")
+    parser.add_argument("--input-matrix",
+                        type=str,
+                        help="""Input feather matrix where columns are specimens
+                        and rows are KOs. Values are abundance or likelihood.""")
+
     parser.add_argument("--threads",
                         type=int,
                         default=1,
@@ -764,5 +804,14 @@ if __name__ == "__main__":
                         help="""SQLite database output path.""")
 
     args = parser.parse_args()
+    if not args.input_eggnog and not args.input_matrix:
+        logging.error("Only one input (eggnog or matrix) required")
+        parser.print_help(sys.stderr)
+        sys.exit(-1)
+    elif args.input_eggnog and args.input_matrix:
+        logging.error("Both inputs (eggnog or matrix) specified. Can only have one.")
+        parser.print_help(sys.stderr)
+        sys.exit(-1)
+        
 
     get_kegg_reaction_metadata(**args.__dict__)
