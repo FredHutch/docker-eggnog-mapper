@@ -150,7 +150,7 @@ def read_eggnog_proportion_df(eggnog_annot, sample_sheet, results_key, abundance
         ))
 
         # Save the proportion of the total sample assigned to each annotation
-        dat[sample_name] = eggnog_depth / depth.sum()
+        dat[str(sample_name)] = eggnog_depth / depth.sum()
 
     logging.info("Formatting as a DataFrame")
     dat = pd.DataFrame(dat).fillna(0)
