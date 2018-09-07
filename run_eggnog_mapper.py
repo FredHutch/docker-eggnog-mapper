@@ -183,15 +183,26 @@ if __name__ == "__main__":
 
     # Get the reference database
     local_db_folder = os.path.join(temp_folder, "db") + "/"
-    logging.info("Downloading the reference database from {}, writing to {}".format(
-        args.db, local_db_folder
-    ))
-    try:
-        run_cmds([
-            "aws", "s3", "sync", "--quiet", args.db, local_db_folder
-        ])
-    except:
-        exit_and_clean_up(temp_folder)
+    if args.db.startswith("s3://"):
+        logging.info("Downloading the reference database from {}, writing to {}".format(
+            args.db, local_db_folder
+        ))
+        try:
+            run_cmds([
+                "aws", "s3", "sync", "--quiet", args.db, local_db_folder
+            ])
+        except:
+            exit_and_clean_up(temp_folder)
+    else:
+        logging.info("Making a symlink of the database {} to {}".format(
+            args.db, local_db_folder
+        ))
+        try:
+            run_cmds([
+                "ln", "-s", args.db, local_db_folder.rstrip("/")
+            ])
+        except:
+            exit_and_clean_up(temp_folder)
 
     logging.info("Processing file: " + args.input)
 
